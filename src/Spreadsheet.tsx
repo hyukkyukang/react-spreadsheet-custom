@@ -60,7 +60,7 @@ export type Props<CellType extends Types.CellBase> = {
    * Labels to use in column indicators.
    * Defaults to: alphabetical labels.
    */
-  columnLabels?: string[];
+  columnLabels?: (string | any)[];
   /**
    * Labels to use in row indicators.
    * Defaults to: row index labels.
