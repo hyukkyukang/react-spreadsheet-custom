@@ -108,7 +108,7 @@ export type Props<CellType extends Types.CellBase> = {
   /** Callback called when the Spreadsheet's edit mode changes. */
   onModeChange?: (mode: Types.Mode) => void;
   /** Callback called when the Spreadsheet's selection changes. */
-  onSelect?: (selected: Point.Point[]) => void;
+  onSelect?: (selected: Point.Point[], selection: Selection.Selection) => void;
   /** Callback called when Spreadsheet's active cell changes. */
   onActivate?: (active: Point.Point) => void;
   /** Callback called when the Spreadsheet loses focus */
@@ -222,7 +222,7 @@ const Spreadsheet = <CellType extends Types.CellBase>(
 
     if (state.selected !== prevState.selected) {
       const points = Selection.getPoints(state.selected, state.data);
-      onSelect(points);
+      onSelect(points, state.selected);
     }
 
     if (state.mode !== prevState.mode) {
