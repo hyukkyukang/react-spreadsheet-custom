@@ -12,172 +12,141 @@ import useDispatch from "./use-dispatch";
 import useSelector from "./use-selector";
 
 export const Cell: React.FC<Types.CellComponentProps> = ({
-  row,
-  column,
-  DataViewer,
-  formulaParser,
-  selected,
-  active,
-  dragging,
-  mode,
-  data,
-  select,
-  activate,
-  setCellDimensions,
-  setCellData,
+    row,
+    column,
+    DataViewer,
+    formulaParser,
+    selected,
+    selectedPoint,
+    active,
+    dragging,
+    mode,
+    data,
+    select,
+    activate,
+    setCellDimensions,
+    setCellData,
 }): React.ReactElement => {
-  const rootRef = React.useRef<HTMLTableCellElement | null>(null);
-  const point = React.useMemo(
-    (): Point.Point => ({
-      row,
-      column,
-    }),
-    [row, column]
-  );
+    const rootRef = React.useRef<HTMLTableCellElement | null>(null);
+    const point = React.useMemo(
+        (): Point.Point => ({
+            row,
+            column,
+        }),
+        [row, column]
+    );
 
-  const handleMouseDown = React.useCallback(
-    (event: React.MouseEvent<HTMLTableCellElement>) => {
-      if (mode === "view") {
-        setCellDimensions(point, getOffsetRect(event.currentTarget));
+    const handleMouseDown = React.useCallback(
+        (event: React.MouseEvent<HTMLTableCellElement>) => {
+            if (mode === "view") {
+                setCellDimensions(point, getOffsetRect(event.currentTarget));
 
-        if (event.shiftKey) {
-          select(point);
-        } else {
-          activate(point);
+                if (event.shiftKey) {
+                    select(point);
+                } else {
+                    activate(point);
+                }
+            }
+        },
+        [mode, setCellDimensions, point, select, activate]
+    );
+
+    const handleMouseOver = React.useCallback(
+        (event: React.MouseEvent<HTMLTableCellElement>) => {
+            if (dragging) {
+                setCellDimensions(point, getOffsetRect(event.currentTarget));
+                select(point);
+            }
+        },
+        [setCellDimensions, select, dragging, point]
+    );
+
+    React.useEffect(() => {
+        const root = rootRef.current;
+        if (selected && root) {
+            setCellDimensions(point, getOffsetRect(root));
         }
-      }
-    },
-    [mode, setCellDimensions, point, select, activate]
-  );
+        if (root && active && mode === "view") {
+            root.focus();
+        }
+    }, [setCellDimensions, selected, active, mode, point, data]);
 
-  const handleMouseOver = React.useCallback(
-    (event: React.MouseEvent<HTMLTableCellElement>) => {
-      if (dragging) {
-        setCellDimensions(point, getOffsetRect(event.currentTarget));
-        select(point);
-      }
-    },
-    [setCellDimensions, select, dragging, point]
-  );
-
-  React.useEffect(() => {
-    const root = rootRef.current;
-    if (selected && root) {
-      setCellDimensions(point, getOffsetRect(root));
+    if (data && data.DataViewer) {
+        // @ts-ignore
+        DataViewer = data.DataViewer;
     }
-    if (root && active && mode === "view") {
-      root.focus();
-    }
-  }, [setCellDimensions, selected, active, mode, point, data]);
 
-  if (data && data.DataViewer) {
-    // @ts-ignore
-    DataViewer = data.DataViewer;
-  }
-
-  return (
-    <td
-      ref={rootRef}
-      className={classnames("Spreadsheet__cell", data?.className, {
-        "Spreadsheet__cell--readonly": data?.readOnly,
-      })}
-      onMouseOver={handleMouseOver}
-      onMouseDown={handleMouseDown}
-      tabIndex={0}
-    >
-      <DataViewer
-        row={row}
-        column={column}
-        cell={data}
-        formulaParser={formulaParser}
-        setCellData={setCellData}
-      />
-    </td>
-  );
+    return (
+        <td
+            ref={rootRef}
+            className={classnames("Spreadsheet__cell", data?.className, {
+                "Spreadsheet__cell--readonly": data?.readOnly,
+            })}
+            onMouseOver={handleMouseOver}
+            onMouseDown={handleMouseDown}
+            tabIndex={0}
+        >
+            <DataViewer row={row} column={column} cell={data} formulaParser={formulaParser} setCellData={setCellData} />
+        </td>
+    );
 };
 
 export const enhance = (
-  CellComponent: React.ComponentType<Types.CellComponentProps>
+    CellComponent: React.ComponentType<Types.CellComponentProps>
 ): React.FC<
-  Omit<
-    Types.CellComponentProps,
-    | "selected"
-    | "active"
-    | "copied"
-    | "dragging"
-    | "mode"
-    | "data"
-    | "select"
-    | "activate"
-    | "setCellDimensions"
-  >
+    Omit<
+        Types.CellComponentProps,
+        "selected" | "selectedPoint" | "active" | "copied" | "dragging" | "mode" | "data" | "select" | "activate" | "setCellDimensions"
+    >
 > => {
-  return function CellWrapper(props) {
-    const { row, column } = props;
-    const dispatch = useDispatch();
-    const setCellData = React.useCallback(
-      (data: Types.CellBase) =>
-        dispatch(
-          Actions.setCellData({ column, row }, data, props.getBindingsForCell)
-        ),
-      [dispatch, props.getBindingsForCell, column, row]
-    );
-    const select = React.useCallback(
-      (point: Point.Point) => dispatch(Actions.select(point)),
-      [dispatch]
-    );
-    const activate = React.useCallback(
-      (point: Point.Point) => dispatch(Actions.activate(point)),
-      [dispatch]
-    );
-    const setCellDimensions = React.useCallback(
-      (point: Point.Point, dimensions: Types.Dimensions) =>
-        dispatch(Actions.setCellDimensions(point, dimensions)),
-      [dispatch]
-    );
-    const active = useSelector((state) =>
-      isActive(state.active, {
-        row,
-        column,
-      })
-    );
-    const mode = useSelector((state) => (active ? state.mode : "view"));
-    const data = useSelector((state) =>
-      Matrix.get({ row, column }, state.data)
-    );
-    const selected = useSelector((state) =>
-      Selection.hasPoint(state.selected, state.data, { row, column })
-    );
-    const dragging = useSelector((state) => state.dragging);
-    const copied = useSelector((state) =>
-      PointMap.has({ row, column }, state.copied)
-    );
+    return function CellWrapper(props) {
+        const { row, column } = props;
+        const dispatch = useDispatch();
+        const setCellData = React.useCallback(
+            (data: Types.CellBase) => dispatch(Actions.setCellData({ column, row }, data, props.getBindingsForCell)),
+            [dispatch, props.getBindingsForCell, column, row]
+        );
+        const select = React.useCallback((point: Point.Point) => dispatch(Actions.select(point)), [dispatch]);
+        const activate = React.useCallback((point: Point.Point) => dispatch(Actions.activate(point)), [dispatch]);
+        const setCellDimensions = React.useCallback(
+            (point: Point.Point, dimensions: Types.Dimensions) => dispatch(Actions.setCellDimensions(point, dimensions)),
+            [dispatch]
+        );
+        const active = useSelector((state) =>
+            isActive(state.active, {
+                row,
+                column,
+            })
+        );
+        const mode = useSelector((state) => (active ? state.mode : "view"));
+        const data = useSelector((state) => Matrix.get({ row, column }, state.data));
+        const selected = useSelector((state) => Selection.hasPoint(state.selected, state.data, { row, column }));
+        const selectedPoint = useSelector((state) => Selection.getSelectedPoint(state.selected));
+        const dragging = useSelector((state) => state.dragging);
+        const copied = useSelector((state) => PointMap.has({ row, column }, state.copied));
 
-    // Use only to trigger re-render when cell bindings change
-    useSelector((state) => {
-      const point = { row, column };
-      const cellBindings = PointMap.get(point, state.bindings);
-      return cellBindings &&
-        state.lastChanged &&
-        PointSet.has(cellBindings, state.lastChanged)
-        ? {}
-        : null;
-    });
+        // Use only to trigger re-render when cell bindings change
+        useSelector((state) => {
+            const point = { row, column };
+            const cellBindings = PointMap.get(point, state.bindings);
+            return cellBindings && state.lastChanged && PointSet.has(cellBindings, state.lastChanged) ? {} : null;
+        });
 
-    return (
-      <CellComponent
-        {...props}
-        selected={selected}
-        active={active}
-        copied={copied}
-        dragging={dragging}
-        mode={mode}
-        data={data}
-        select={select}
-        activate={activate}
-        setCellDimensions={setCellDimensions}
-        setCellData={setCellData}
-      />
-    );
-  };
+        return (
+            <CellComponent
+                {...props}
+                selected={selected}
+                selectedPoint={selectedPoint}
+                active={active}
+                copied={copied}
+                dragging={dragging}
+                mode={mode}
+                data={data}
+                select={select}
+                activate={activate}
+                setCellDimensions={setCellDimensions}
+                setCellData={setCellData}
+            />
+        );
+    };
 };
